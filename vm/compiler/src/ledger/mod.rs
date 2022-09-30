@@ -917,6 +917,10 @@ mod tests {
     use crate::ledger::test_helpers::CurrentLedger;
     use console::{network::Testnet3, program::Value};
     use snarkvm_utilities::TestRng;
+    use std::{
+        fs::File,
+        io::{BufRead, BufReader},
+    };
 
     use tracing_test::traced_test;
 
@@ -1126,6 +1130,23 @@ mod tests {
             ledger.add_next_block(&next_block).unwrap();
             assert_eq!(ledger.latest_height(), height);
             assert_eq!(ledger.latest_hash(), next_block.hash());
+        }
+
+        let mut file = File::create("blocks").unwrap();
+        for height in 1..ledger.current_height + 1 {
+            let block = ledger.get_block(height).unwrap();
+
+            file.write_all(block.to_string().as_bytes()).unwrap();
+            if height != ledger.current_height {
+                file.write_all(b"\n").unwrap();
+            }
+        }
+
+        let file = File::open("blocks").unwrap();
+        let reader = BufReader::new(file);
+        for (index, line) in reader.lines().enumerate() {
+            let block = Block::<Testnet3>::from_str(&line.unwrap());
+            assert_eq!(block.unwrap().height() as usize, index + 1);
         }
     }
 }
